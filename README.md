@@ -7,16 +7,16 @@ This repository contains a selection of R Markdown (.Rmd) scripts demonstrating 
 
 The scripts were developed as part of university coursework and are provided in R Markdown format to integrate code, figures, and scientific interpretation in a transparent and reproducible way.
 
-## Contents
+# Contents
 
-- **Fisheries analysis**
-  - Quantitative exploration of fisheries-related datasets, including data cleaning, visualization, and interpretation of trends relevant to resource management.
+# fisheries_analysis.Rmd
+Quantitative analysis of fisheries-related data examining trends in catch and effort. This project demonstrates data cleaning, visualization, and interpretation in a marine resource management context.
 
-- **Surface and atmospheric temperature calculations**
-  - Calculation of surface and atmospheric temperatures using emissivity and albedo constants, with a focus on radiative processes relevant to climate and ocean–atmosphere interactions.
+# surface_temperature_emissivity.Rmd
+A physics-based analysis calculating surface and atmospheric temperatures using emissivity and albedo constants. This project reflects my interest in climate processes relevant to ocean–atmosphere interactions.
 
-- **Climate variability and biogeochemical relationships**
-  - Analysis examining correlations between soil nitrogen content, Oceanic Niño Index (ONI) phases, and sugarcane production, highlighting climate–ecosystem linkages and statistical interpretation.
+# oni_soilN_sugarcane.Rmd
+Statistical analysis exploring the relationship between soil nitrogen content, ENSO phases (ONI), and sugarcane production. This project demonstrates correlation analysis, climate indices, and ecological inference.
 
 ## Tools & Skills Demonstrated
 - R and R Markdown
