@@ -1,0 +1,642 @@
+---
+title: "Giblin.Kealalani.AdvancedAssignment2"
+author: "Kealalani Giblin"
+date: "2025-11-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+INITIALISATION:
+1.	Use initial rough values of Ta0 = 240 K, αc =0.01 K-1, αo =0.3, εac = 0.01 K-1 and εao = 0.78 to plot (using R) how atmospheric and surface temperature vary through a 20-year period.  Do the values converge to an asymptote?  If so, comment on how the values compare with the model from Section 6.8 (with constant emissivity and albedo). 
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+simulateClimateChange <- function(plot_flag = TRUE) {
+A <- 4 * pi * (6378000^2) #earths surface area
+propn_ocean <- 0.7 #proportion of earths surface = ocean
+C <- (A * propn_ocean * 100 * 1025 *3.993) + (A * (1 - propn_ocean) * 5 * 1600 * 0.8) #earths heat capacity
+
+S <- 1368 #solar constant
+sigma <- 5.6704e-8 #S-B constant
+Ta0 <- 240 #ref atmospheric temp
+alpha_c <- 0.01 #albedo variation coefficient 
+alpha_0 <- 0.3 #ref albedo
+eps_ac <- 0.01 #emssivity variation coefficient
+eps_a0 <- 0.78 #ref emissivity
+
+time_int <- (365 / 2) * 24 * 60 * 60 #time interval (secs in a half year)
+num_years <- 20 #years to run the simulation for
+
+year <- seq(from = 0, to = 20, by = 0.5) 
+rate_in <- rep(S/4, length(year))
+rate_out <- numeric(length(year))
+delta_T <- numeric(length(year))
+Ts <- numeric(length(year))
+Ts[1] <- ((S * (1 - alpha_0)) / (4 * sigma * (1 - (eps_a0 / 2)))) ^ 0.25
+Ta <- numeric(length(year))
+Ta[1] <- Ta0
+alpha <- numeric(length(year))
+alpha[1] <- alpha_0
+epsilon_a <- numeric(length(year))
+epsilon_a[1] <- eps_a0
+
+for (i in 2:length(year)) {
+  epsilon_a[i] <- eps_ac * (Ta[i-1] - Ta0) + eps_a0
+  alpha[i] <- alpha_c * (Ta[i-1] - Ta0) + alpha_0
+  
+  Ts[i] <- ((S * (1 - alpha[i])) / (4 * sigma * (1 - (epsilon_a[i] / 2)))) ^ 0.25
+  Ta[i] = Ts[i] / (2 ^ 0.25)
+  
+  rate_out[i] = alpha[i] * S / 4 + (1 - epsilon_a[i]) * sigma * Ts[i]^4 + epsilon_a[i] * sigma * Ta[i]^4 
+  
+  delta_T[i] = (1 / C) * (rate_in[i] - rate_out[i]) * (A / 1000) * time_int
+  
+  if (i < length(year)) {
+        Ts[i+1] = Ts[i] + delta_T[i]
+        } else {}
+}
+
+ClimateChange <- data.frame(year, rate_in, rate_out, delta_T, Ts, Ta)
+
+plot_flag <- TRUE
+
+if (plot_flag){
+  with(ClimateChange, plot(Ts ~ year, type = "l", col = "blue", ylim = c(min(Ta) - 10, max(Ts)+10), ylab = "Temperature"))
+  lines(Ta ~ year, type = "l", col = "red")
+  legend("topright", c("Ts", "Ta"), lty = c(1, 1), col = c("blue", "red"))
+}
+
+return(ClimateChange)
+}
+
+result <- simulateClimateChange(plot_flag = TRUE)
+```
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+Yes, the atmospheric temperature converges to an asymptote around 242 K and the surface temperature converges to an asymptote around 287 K. This is around the same values as the model in section 6.8 (Figure 6.8-4).
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+simulateClimateChange <- function(alpha_c = 0.01, eps_ac = 0.01, plot_flag = TRUE) {
+  A <- 4 * pi * (6378000^2) # earth surface area
+  propn_ocean <- 0.7
+  C <- (A * propn_ocean * 100 * 1025 * 3.993) + (A * (1 - propn_ocean) * 5 * 1600 * 0.8)
+  
+  S <- 1368
+  sigma <- 5.6704e-8
+  Ta0 <- 240
+  alpha_0 <- 0.3
+  eps_a0 <- 0.78
+  
+  time_int <- (365 / 2) * 24 * 60 * 60
+  num_years <- 20
+  year <- seq(from = 0, to = num_years, by = 0.5)
+  
+  rate_in <- rep(S / 4, length(year))
+  rate_out <- numeric(length(year))
+  delta_T <- numeric(length(year))
+  Ts <- numeric(length(year))
+  Ts[1] <- ((S * (1 - alpha_0)) / (4 * sigma * (1 - (eps_a0 / 2)))) ^ 0.25
+  Ta <- numeric(length(year))
+  Ta[1] <- Ta0
+  alpha <- numeric(length(year))
+  alpha[1] <- alpha_0
+  epsilon_a <- numeric(length(year))
+  epsilon_a[1] <- eps_a0
+  
+  for (i in 2:length(year)) {
+    epsilon_a[i] <- eps_ac * (Ta[i-1] - Ta0) + eps_a0
+    alpha[i] <- alpha_c * (Ta[i-1] - Ta0) + alpha_0
+    
+    Ts[i] <- ((S * (1 - alpha[i])) / (4 * sigma * (1 - (epsilon_a[i] / 2)))) ^ 0.25
+    Ta[i] <- Ts[i] / (2 ^ 0.25)
+    rate_out[i] <- alpha[i] * S / 4 + (1 - epsilon_a[i]) * sigma * Ts[i]^4 + epsilon_a[i] * sigma * Ta[i]^4
+    delta_T[i] <- (1 / C) * (rate_in[i] - rate_out[i]) * (A / 1000) * time_int
+    
+    if (i < length(year)) {
+      Ts[i+1] <- Ts[i] + delta_T[i]
+    }
+  }
+  
+  ClimateChange <- data.frame(year, Ts, Ta, alpha, epsilon_a)
+  
+  if (plot_flag) {
+    with(ClimateChange, {
+      plot(Ts ~ year, type = "l", col = "blue", ylim = c(min(Ta)-10, max(Ts)+10), ylab = "Temperature (K)", main = paste("alpha_c =", alpha_c, " | eps_ac =", eps_ac))
+      lines(Ta ~ year, col = "red")
+      legend("topright", c("Surface (Ts)", "Atmosphere (Ta)"), col = c("blue", "red"), lty = 1)
+    })
+  }
+  
+  return(ClimateChange)
+}
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+PART A:
+Explore the model using various values of αc and εac.  First, increment (up and down) the albedo variation coefficient, including use of negative values, whilst holding the emissivity variation coefficient constant.  Test if the albedo and/or atmospheric emissivity can be made to go outside the valid range; record temperature values where convergence occurs.  
+2.	With emissivity variation constant (=0.01 K-1), determine the maximum and minimum values of the albedo variation coefficient for which valid values of albedo and emissivity occur. [1]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+alpha_values <- seq(-0.01, 0.02, by = 0.001)
+results_alpha <- list()
+
+for (a in alpha_values) {
+  cat("Running alpha_c =", a, "\n")
+  res <- simulateClimateChange(alpha_c = a, eps_ac = 0.01, plot_flag = FALSE)
+  results_alpha[[as.character(a)]] <- res
+}
+
+valid_alpha <- sapply(results_alpha, function(df) all(df$alpha >= 0 & df$alpha <= 1))
+valid_eps <- sapply(results_alpha, function(df) all(df$epsilon_a >= 0 & df$epsilon_a <= 1))
+
+data.frame(alpha_c = alpha_values, valid_alpha, valid_eps)
+```
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+The maximum and minimum values of the albedo variation coefficient for which valid values of albedo and emissivity occur are 0.017 and -0.003 respectively. 
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+Second, vary the emissivity variation coefficient, including use of negative values, whilst holding the albedo variation coefficient constant (repeat the tests; record values).  
+3.	With albedo variation constant (=0.01 K-1), determine the maximum and minimum values of the emissivity variation coefficient for which valid values of albedo and emissivity occur. 
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+eps_values <- seq(-0.01, 0.03, by = 0.001)
+results_eps <- list()
+
+for (e in eps_values) {
+  cat("Running eps_ac =", e, "\n")
+  res <- simulateClimateChange(alpha_c = 0.01, eps_ac = e, plot_flag = FALSE)
+  results_eps[[as.character(e)]] <- res
+}
+
+valid_alpha_eps <- sapply(results_eps, function(df) all(df$alpha >= 0 & df$alpha <= 1))
+valid_eps_eps <- sapply(results_eps, function(df) all(df$epsilon_a >= 0 & df$epsilon_a <= 1))
+
+data.frame(eps_ac = eps_values, valid_alpha = valid_alpha_eps, valid_eps = valid_eps_eps)
+```
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+The maximum and minimum values of the emissivity variation coefficient for which valid values of albedo and emissivity occur are 0.028 and -0.004 respectively. 
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+Third, vary both parameters (guided by the values found when varying only one parameter at a time) and repeat the tests/record values.
+4.	Replicate the plot in #1 for key parameter values that have interesting outcomes and that produce values at/near limits of the valid range of albedo and emissivity (see previous notes on valid ranges).  You should aim to present 4-8 scenarios.  Plot atmospheric temperature from all scenarios on a single plot (using different colours for each scenario) and surface temperature from all scenarios on a second plot (using matching colours). [2]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+params <- list(
+  c(-0.003, 0.01), # low albedo var, normal emissivity var
+  c(0.017, 0.01), # high albedo var, normal emissivity var
+  c(0.01, -0.004), # normal albedo var, low emissivity var
+  c(0.01, 0.028), # normal albedo var, high emissivity var
+  c(-0.003, -0.004), # both low 
+  c(0.017, 0.028) # both high 
+)
+
+library(RColorBrewer)
+colors <- brewer.pal(n = 6, name = "Dark2")
+
+#Ta 
+plot(NULL, xlim = c(0, 20), ylim = c(220, 280), xlab = "Year", ylab = "Atmospheric Temperature (K)", main = "Atmospheric Temperature Scenarios")
+
+for (i in 1:length(params)) {
+  res <- simulateClimateChange(alpha_c = params[[i]][1], eps_ac = params[[i]][2], plot_flag = FALSE)
+  lines(res$year, res$Ta, col = colors[i], lwd = 2)
+}
+legend("topright", legend = sapply(params, function(x) paste("αc =",x[1],"| εac =",x[2])), col = colors, lwd = 2)
+
+#Ts
+plot(NULL, xlim = c(0, 20), ylim = c(250, 310), xlab = "Year", ylab = "Surface Temperature (K)", main = "Surface Temperature Scenarios")
+
+for (i in 1:length(params)) {
+  res <- simulateClimateChange(alpha_c = params[[i]][1], eps_ac = params[[i]][2], plot_flag = FALSE)
+  lines(res$year, res$Ts, col = colors[i], lwd = 2)
+}
+
+legend("bottomleft",
+       legend = sapply(params, function(x) paste("αc =", x[1], "| εac =", x[2])), col = colors, lwd = 2)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+5.	By considering outcomes for the first and second experiments, describe the relative sensitivity of the temperatures to changes in each of the parameters.  Sensitivity is a measure of how much change in the outcome occurs with change to the input value (e.g., zero change in outcome would indicate zero sensitivity). [1]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+The model demonstrates that temperature is more sensitive to changes in emissivity than to albedo, with emissivity strongly influencing both the magnitude and stability of temperature evolution.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+6.	Create a table that summarizes outcomes for several variation coefficient values (albedo across the table, emissivity down), reporting the temperature asymptote value (if an asymptote occurs), otherwise describing the behavior of the temperature (including noting whether one or both parameters become invalid). Include the maximum/minimum values you found in #2 and #3, as well as 0.01 K-1 on each table axis, and insert an appropriate number of other values on each axis to demonstrate any patterns (aim for around seven values for each parameter). [2]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+alpha_values <- seq(-0.003, 0.017, length.out = 7)
+eps_values <- seq(-0.004, 0.028, length.out = 7)
+
+get_asymptote <- function(alpha_c, eps_ac) {
+  res <- simulateClimateChange(alpha_c = alpha_c, eps_ac = eps_ac, plot_flag = FALSE)
+  if (any(res$alpha < 0 | res$alpha > 1 | res$epsilon_a < 0 | res$epsilon_a > 1)) {
+    return("invalid")
+  }
+  Ts_vals <- tail(res$Ts, 6)
+  if (max(diff(Ts_vals)) < 0.01) {
+    return(round(mean(Ts_vals), 2))
+  } else {
+    return("no asymptote")
+  }
+}
+
+table6 <- matrix(NA, nrow = length(eps_values), ncol = length(alpha_values))
+for (i in seq_along(eps_values)) {
+  for (j in seq_along(alpha_values)) {
+    table6[i, j] <- get_asymptote(alpha_values[j], eps_values[i])
+  }
+}
+
+colnames(table6) <- paste("αc =", round(alpha_values, 4))
+rownames(table6) <- paste("εac =", round(eps_values, 4))
+table6
+
+library(knitr)
+library(kableExtra)
+
+kable(table6, caption = "Q6: Asymptotic Surface Temperatures (K)",
+      align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "bordered"),
+                full_width = FALSE,
+                position = "center",
+                font_size = 12)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+7.  Comment on the plots (#4) and the range of variation coefficient values that produce valid outcomes (#6). [2]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+As shown by the plots in Question 4, when the albedo variation coefficient, αc, is low (−0.003) and emissivity variation coefficient, εac, is normal (0.01), the temperatures increase significantly before stabilizing at a plateau, with approximately +10 K change (Ta ≈ 250 K, Ts ≈ 295 K). When αc is high (0.017) and εac remains normal, temperatures oscillate slightly (about 3 K variation; Ta ≈ 240–243 K, Ts ≈ 285–288 K). This indicates that the model is somewhat sensitive to albedo variation, but the overall effect on equilibrium temperature is moderate.
+In contrast, when emissivity variation is altered while keeping albedo constant (αc = 0.01), the response is much stronger. A low emissivity coefficient (−0.004) produces large-amplitude oscillations (≈ 20 K range), while a high emissivity coefficient (0.028) causes the temperature to rise to a new plateau a few degrees higher (Ta ≈ 245 K, Ts ≈ 295 K). This shows that the model is highly sensitive to changes in atmospheric emissivity.
+At the combined low or high ends of both parameters, the system becomes stable again, showing minimal variation (Ta ≈ 242 K, Ts ≈ 288 K).
+From Question 6, valid solutions occur only within a limited range: for αc, approximately −0.003 ≤ αc ≤ 0.017, and for εac, approximately −0.004 ≤ εac ≤ 0.028. Outside these ranges, either albedo or emissivity values fall outside their physical bounds (0–1), leading to invalid or unstable temperature results. Within the valid range, surface temperature asymptotes cluster between ~287–293 K, with instability occurring mainly at intermediate to high εac and αc combinations where oscillations appear (“no asymptote” in the table). Overall, the valid range is relatively narrow, and the plots indicate that the system stability and equilibrium temperature are primarily governed by atmospheric emissivity, while albedo variation has a secondary, damping effect.
+</p>
+
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+PART B:
+In Equation 1, replace the atmospheric temperature, Ta, with surface temperature, Ts (including resetting the reference temperature to Ts0 = 288 K).
+8.	Redo steps #4-7 and describe the effect for various values of the variation coefficients. [4]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+simulateClimateChange1 <- function(alpha_c = 0.01, eps_ac = 0.01, plot_flag = TRUE) {
+  A <- 4 * pi * (6378000^2) # earth surface area
+  propn_ocean <- 0.7
+  C <- (A * propn_ocean * 100 * 1025 * 3.993) + (A * (1 - propn_ocean) * 5 * 1600 * 0.8)
+  
+  S <- 1368
+  sigma <- 5.6704e-8
+  Ts0 <- 288
+  alpha_0 <- 0.3
+  eps_a0 <- 0.78
+  
+  time_int <- (365 / 2) * 24 * 60 * 60
+  num_years <- 20
+  year <- seq(from = 0, to = num_years, by = 0.5)
+  
+  rate_in <- rep(S / 4, length(year))
+  rate_out <- numeric(length(year))
+  delta_T <- numeric(length(year))
+  Ts <- numeric(length(year))
+  Ts[1] <- Ts0
+  Ta <- numeric(length(year))
+  Ta[1] <- Ts0 / (2 ^ 0.25)
+  alpha <- numeric(length(year))
+  alpha[1] <- alpha_0
+  epsilon_a <- numeric(length(year))
+  epsilon_a[1] <- eps_a0
+  
+  for (i in 2:length(year)) {
+    epsilon_a[i] <- eps_ac * (Ts[i-1] - Ts0) + eps_a0
+    alpha[i] <- alpha_c * (Ts[i-1] - Ts0) + alpha_0
+    
+    Ts[i] <- ((S * (1 - alpha[i])) / (4 * sigma * (1 - (epsilon_a[i] / 2)))) ^ 0.25
+    Ta[i] <- Ts[i] / (2 ^ 0.25)
+    rate_out[i] <- alpha[i] * S / 4 + (1 - epsilon_a[i]) * sigma * Ts[i]^4 + epsilon_a[i] * sigma * Ta[i]^4
+    delta_T[i] <- (1 / C) * (rate_in[i] - rate_out[i]) * (A / 1000) * time_int
+    
+    if (i < length(year)) {
+      Ts[i+1] <- Ts[i] + delta_T[i]
+    }
+  }
+  
+  ClimateChange1 <- data.frame(year, Ts, Ta, alpha, epsilon_a)
+  
+  if (plot_flag) {
+    with(ClimateChange1, {
+      plot(Ts ~ year, type = "l", col = "blue",
+           ylim = c(min(Ta)-10, max(Ts)+10), ylab = "Temperature (K)",
+           main = paste("alpha_c =", alpha_c, " | eps_ac =", eps_ac))
+      lines(Ta ~ year, col = "red")
+      legend("topright", c("Surface (Ts)", "Atmosphere (Ta)"), col = c("blue", "red"), lty = 1)
+    })
+  }
+  
+  return(ClimateChange1)
+}
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+8-4.	Replicate the plot in #1 for key parameter values that have interesting outcomes and that produce values at/near limits of the valid range of albedo and emissivity (see previous notes on valid ranges).  You should aim to present 4-8 scenarios.  Plot atmospheric temperature from all scenarios on a single plot (using different colours for each scenario) and surface temperature from all scenarios on a second plot (using matching colours). [2]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+params <- list(
+  c(-0.003, 0.01),   # low albedo var, normal emissivity var
+  c(0.017, 0.01),    # high albedo var, normal emissivity var
+  c(0.01, -0.004),   # normal albedo var, low emissivity var
+  c(0.01, 0.028),    # normal albedo var, high emissivity var
+  c(-0.003, -0.004), # both low ends
+  c(0.017, 0.028)    # both high ends
+)
+
+library(RColorBrewer)
+colors <- brewer.pal(n = 6, name = "Dark2")
+
+#Ta 
+plot(NULL, xlim = c(0, 20), ylim = c(100, 350),
+     xlab = "Year", ylab = "Atmospheric Temperature (K)",
+     main = "Atmospheric Temperature Scenarios")
+
+for (i in 1:length(params)) {
+  res <- simulateClimateChange1(alpha_c = params[[i]][1], eps_ac = params[[i]][2], plot_flag = FALSE)
+  lines(res$year, res$Ta, col = colors[i], lwd = 2)
+}
+legend("topright", legend = sapply(params, function(x) paste("αc =",x[1],"| εac =",x[2])),
+       col = colors, lwd = 2)
+
+#Ts
+plot(NULL, xlim = c(0, 20), ylim = c(150, 400),
+     xlab = "Year", ylab = "Surface Temperature (K)",
+     main = "Surface Temperature Scenarios")
+
+for (i in 1:length(params)) {
+  res <- simulateClimateChange1(alpha_c = params[[i]][1],
+                               eps_ac = params[[i]][2],
+                               plot_flag = FALSE)
+  lines(res$year, res$Ts, col = colors[i], lwd = 2)
+}
+
+legend("bottomleft",
+       legend = sapply(params,
+                       function(x) paste("αc =", x[1], "| εac =", x[2])),
+       col = colors, lwd = 2)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+8-5.	By considering outcomes for the first and second experiments, describe the relative sensitivity of the temperatures to changes in each of the parameters.  Sensitivity is a measure of how much change in the outcome occurs with change to the input value (e.g., zero change in outcome would indicate zero sensitivity). [1]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+The model is much more sensitive to changes in emissivity variation, εac, than to changes in albedo variation, αc. Altering emissivity strongly affects both the magnitude and stability of temperature evolution, while albedo changes mainly influence oscillation behavior and have a smaller overall effect on equilibrium temperature.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+8-6.	Create a table that summarizes outcomes for several variation coefficient values (albedo across the table, emissivity down), reporting the temperature asymptote value (if an asymptote occurs), otherwise describing the behavior of the temperature (including noting whether one or both parameters become invalid). Include the maximum/minimum values you found in #2 and #3, as well as 0.01 K-1 on each table axis, and insert an appropriate number of other values on each axis to demonstrate any patterns (aim for around seven values for each parameter). [2]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+alpha_values <- seq(-0.003, 0.017, length.out = 7)
+eps_values <- seq(-0.004, 0.028, length.out = 7)
+
+get_asymptote <- function(alpha_c, eps_ac) {
+  res <- simulateClimateChange1(alpha_c = alpha_c, eps_ac = eps_ac, plot_flag = FALSE)
+  if (any(res$alpha < 0 | res$alpha > 1 | res$epsilon_a < 0 | res$epsilon_a > 1)) {
+    return("invalid")
+  }
+  Ts_vals <- tail(res$Ts, 6)
+  if (max(diff(Ts_vals)) < 0.01) {
+    return(round(mean(Ts_vals), 2))
+  } else {
+    return("no_asymptote")
+  }
+}
+
+table6 <- matrix(NA, nrow = length(eps_values), ncol = length(alpha_values))
+for (i in seq_along(eps_values)) {
+  for (j in seq_along(alpha_values)) {
+    table6[i, j] <- get_asymptote(alpha_values[j], eps_values[i])
+  }
+}
+
+colnames(table6) <- paste("αc =", round(alpha_values, 4))
+rownames(table6) <- paste("εac =", round(eps_values, 4))
+table6
+
+library(knitr)
+library(kableExtra)
+
+kable(table6, caption = "Q6: Asymptotic Surface Temperatures (K)",
+      align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "bordered"),
+                full_width = FALSE,
+                position = "center",
+                font_size = 12)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+8-7.	Comment on the plots (#4) and the range of variation coefficient values that produce valid outcomes (#6). [2]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+From the plots in Question 4, the only scenarios showing significant variation in atmospheric and surface temperatures occur when the albedo variation coefficient (αc) is held constant at 0.01 and the emissivity variation coefficient (εac) is low (−0.004), and when αc is high (0.017) while εac remains constant (0.01). 
+When εac is low, the temperature curves begin to oscillate with a small initial amplitude that rapidly increases to a total range of approximately 150 K, with instability appearing around year 12. This likely indicates that the system becomes physically invalid or numerically unstable beyond this point (or potentially a coding error).
+When αc is high, the model also produces oscillations that gradually increase in amplitude, reaching a similar total range (~150 K) after about 20 years, but with a slower initial growth and a sharper rise near the end of the simulation.
+The results in Question 6 show that the model only produces physically valid outcomes within a narrow range of the variation coefficients. Valid, stable temperature asymptotes occur roughly when −0.003 ≤ αc ≤ 0.010 and −0.004 ≤ εac ≤ 0.017. Outside these bounds, albedo or emissivity values move beyond their physical limits (0–1), leading to “no asymptote” behavior or invalid results. Within the valid range, surface temperatures converge to asymptotes between 288 K and 289.5 K, indicating a stable climate equilibrium. As αc and εac increase toward the upper limits, the model begins to lose stability, and the system fails to reach equilibrium. Conversely, at lower values of both parameters, the model remains stable with only minor temperature variation.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+PART C:
+Replace the linear function of Equation 1 with a non-linear form for emissivity. 
+9.	Determine the value of k where εa = 0.78 at Ta = 240 K.  Apply this constant value of k to determine the temperature evolution and describe the effect for various values of the albedo variation coefficient (i.e., repeat steps #4-7). [3]
+</p>
+
+```{r, echo=TRUE, fig.width=10, fig.height=10}
+emissivity_s <- function(Ta) {
+  6.11094 * exp((17.625 * (Ta - 273.15)) / (243.04 + (Ta - 273.15)))
+}
+k <- 0.78 / emissivity_s(240)
+cat("k =", k, "\n")
+
+simulateClimateChange_nonlinear <- function(alpha_c = 0.01, plot_flag = TRUE) {
+  A <- 4 * pi * (6378000^2)
+  propn_ocean <- 0.7
+  C <- (A * propn_ocean * 100 * 1025 * 3.993) + (A * (1 - propn_ocean) * 5 * 1600 * 0.8)
+  
+  S <- 1368
+  sigma <- 5.6704e-8
+  Ta0 <- 240
+  alpha_0 <- 0.3
+  eps_a0 <- 0.78
+  
+  time_int <- (365 / 2) * 24 * 60 * 60
+  num_years <- 20
+  year <- seq(from = 0, to = num_years, by = 0.5)
+  
+  rate_in <- rep(S / 4, length(year))
+  Ts <- numeric(length(year))
+  Ta <- numeric(length(year))
+  alpha <- numeric(length(year))
+  epsilon_a <- numeric(length(year))
+  
+  Ts[1] <- ((S * (1 - alpha_0)) / (4 * sigma * (1 - (eps_a0 / 2)))) ^ 0.25
+  Ta[1] <- Ta0
+  alpha[1] <- alpha_0
+  epsilon_a[1] <- eps_a0
+  
+  for (i in 2:length(year)) {
+    epsilon_a[i] <- k * emissivity_s(Ta[i-1])
+    alpha[i] <- alpha_c * (Ta[i-1] - Ta0) + alpha_0
+    Ts[i] <- ((S * (1 - alpha[i])) / (4 * sigma * (1 - (epsilon_a[i] / 2)))) ^ 0.25
+    Ta[i] <- Ts[i] / (2 ^ 0.25)
+  }
+  
+  df <- data.frame(year, Ts, Ta, alpha, epsilon_a)
+  if (plot_flag) {
+    plot(df$year, df$Ts, type = "l", col = "blue",
+         ylim = c(230, 320), xlab = "Year", ylab = "Temperature (K)",
+         main = paste("Nonlinear emissivity | αc =", alpha_c))
+    lines(df$year, df$Ta, col = "red")
+    legend("topright", c("Surface (Ts)", "Atmosphere (Ta)"), col = c("blue", "red"), lty = 1)
+  }
+  return(df)
+}
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+9-2.	With emissivity variation constant (=0.01 K-1), determine the maximum and minimum values of the albedo variation coefficient for which valid values of albedo and emissivity occur. [1]
+</p>
+
+```{r,echo=TRUE, fig.height=10, fig.width=10}
+alpha_values <- seq(0.048, 0.059, by = 0.001)
+results_alpha <- list()
+
+for (a in alpha_values) {
+  cat("Running alpha_c =", a, "\n")
+  res <- simulateClimateChange_nonlinear(alpha_c = a, plot_flag = FALSE)
+  results_alpha[[as.character(a)]] <- res
+}
+
+valid_alpha <- sapply(results_alpha, function(df) all(df$alpha >= 0 & df$alpha <= 1))
+valid_eps <- sapply(results_alpha, function(df) all(df$epsilon_a >= 0 & df$epsilon_a <= 1))
+
+data.frame(alpha_c = alpha_values, valid_alpha, valid_eps)
+```
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+The maximum and minimum values of the albedo variation coefficient for which valid values of albedo and emissivity occur are 0.058 and 0.049 respectively. 
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+9-4.	Replicate the plot in #1 for key parameter values that have interesting outcomes and that produce values at/near limits of the valid range of albedo and emissivity (see previous notes on valid ranges).  You should aim to present 4-8 scenarios.  Plot atmospheric temperature from all scenarios on a single plot (using different colours for each scenario) and surface temperature from all scenarios on a second plot (using matching colours). [2]
+</p>
+
+```{r, echo=TRUE, fig.height=10, fig.width=10}
+alpha_vals <- seq(from = 0.049, to = 0.058, length.out = 7)
+
+library(RColorBrewer)
+colors <- brewer.pal(n = length(alpha_vals), name = "Dark2")
+
+#Ta
+plot(NULL, xlim = c(0, 20), ylim = c(240, 244), xlab = "Year", ylab = "Atmospheric Temperature (K)", main = "Atmospheric Temperature Scenarios (Nonlinear emissivity)")
+
+for (i in seq_along(alpha_vals)) {
+  res <- simulateClimateChange_nonlinear(alpha_c = alpha_vals[i], plot_flag = FALSE)
+  lines(res$year, res$Ta, col = colors[i], lwd = 2)
+}
+legend("topright", legend = paste("αc =", alpha_vals), col = colors, lwd = 2)
+
+#Ts
+plot(NULL, xlim = c(0, 20), ylim = c(285, 290), xlab = "Year", ylab = "Surface Temperature (K)", main = "Surface Temperature Scenarios (Nonlinear emissivity)")
+
+for (i in seq_along(alpha_vals)) {
+  res <- simulateClimateChange_nonlinear(alpha_c = alpha_vals[i], plot_flag = FALSE)
+  lines(res$year, res$Ts, col = colors[i], lwd = 2)
+}
+legend("topright", legend = paste("αc =", alpha_vals), col = colors, lwd = 2)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+9-5.	By considering outcomes for the first and second experiments, describe the relative sensitivity of the temperatures to changes in each of the parameters.  Sensitivity is a measure of how much change in the outcome occurs with change to the input value (e.g., zero change in outcome would indicate zero sensitivity). [1]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+The model shows moderate sensitivity to albedo variation, small changes in αc alter the amplitude and duration of oscillations but not the overall equilibrium temperature dramatically.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+9-6.	Create a table that summarizes outcomes for several variation coefficient values (albedo across the table, emissivity down), reporting the temperature asymptote value (if an asymptote occurs), otherwise describing the behavior of the temperature (including noting whether one or both parameters become invalid). Include the maximum/minimum values you found in #2 and #3, as well as 0.01 K-1 on each table axis, and insert an appropriate number of other values on each axis to demonstrate any patterns (aim for around seven values for each parameter). [2]
+</p>
+
+```{r, echo=TRUE, fig.height=10, fig.width=10}
+alpha_values <- seq(0.049, 0.058, length.out = 7)
+
+get_asymptote_nonlinear <- function(alpha_c) {
+  res <- simulateClimateChange_nonlinear(alpha_c = alpha_c, plot_flag = FALSE)
+  
+  if (any(res$alpha < 0 | res$alpha > 1)) {
+    return(c(Ts = NA, Ta = NA, behaviour = "invalid"))
+  }
+  
+  Ts_vals <- tail(res$Ts, 6)
+  Ta_vals <- tail(res$Ta, 6)
+  
+  if (max(diff(Ts_vals)) < 0.01) {
+    return(c(Ts = round(mean(Ts_vals), 2), Ta = round(mean(Ta_vals), 2), behaviour = "asymptotic"))
+  } else {
+    return(c(Ts = NA, Ta = NA, behaviour = "no_asymptote"))
+  }
+}
+
+results9 <- data.frame(alpha_c = alpha_values, Ts_asym = NA, Ta_asym = NA, Behaviour = NA)
+
+for (i in seq_along(alpha_values)) {
+  res <- get_asymptote_nonlinear(alpha_values[i])
+  results9$Ts_asym[i] <- res["Ts"]
+  results9$Ta_asym[i] <- res["Ta"]
+  results9$Behaviour[i] <- res["behaviour"]
+}
+
+library(knitr)
+library(kableExtra)
+
+kable(results9, caption = "Q9: Asymptotic Temperatures for Nonlinear Model", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "bordered"), full_width = FALSE, position = "center", font_size = 12)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px;">
+9-7.	Comment on the plots (#4) and the range of variation coefficient values that produce valid outcomes (#6). [2]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:red;">
+From Question 4, for both atmospheric and surface temperatures, increasing the albedo variation coefficient, αc, from 0.049 to 0.0565 results in a gradual decrease in the equilibrium (asymptotic) temperatures and a slow emergence of oscillatory behavior. At αc = 0.049–0.052, the system reaches stable equilibrium quickly, with asymptotes around Ts ≈ 287.5–288.2 K and Ta ≈ 241.7–242.5 K. At αc = 0.0535–0.0565, small oscillations appear before stabilizing — oscillation amplitude increases from ~0.4 K, lasting 2–3 years, to ~2 K, lasting about 18 years. At αc = 0.058, oscillations become larger (~3 K) and persistent, with no stability within 20 years, suggesting the upper stability limit of the model.
+From Question 6, The model remains valid and convergent for 0.049 ≤ αc ≤ 0.0565, where both surface and atmospheric temperatures reach stable asymptotes. Beyond αc ≈ 0.058, the model becomes unstable, showing continuous oscillations and failing to achieve equilibrium within the 20-year simulation period.
+Within the valid range, surface temperature asymptotes decrease slightly (from 288.2 K to 286.9 K) as αc increases, while atmospheric temperatures follow a similar trend (from 242.4 K to 241.3 K). This demonstrates that the system’s equilibrium is sensitive but stable under small albedo variations.
+Overall, the valid outcomes occur in a narrow αc range, confirming that the model’s stability is tightly constrained and that increasing αc beyond ~0.057 leads to non-physical, oscillatory behavior.
+</p>
+
+
+
+
+
+
+
+
+

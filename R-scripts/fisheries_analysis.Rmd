@@ -1,0 +1,371 @@
+---
+title: "Giblin.Kealalani.AdvancedAssignment1"
+author: "Kealalani Giblin"
+date: "2025-10-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+1.	a) Create an R script that contains the function LogisticModel() from your text. Simulate the dynamics of a population growing logistically in a fluctuating environment for 1000 years, in the absence of harvesting, with R0=0.2, K=100, N0=100, and v=0.15.  a) Using R, plot a graph of population size over time, and a frequency distribution of population sizes. [2]
+</p>
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+LogisticModel <- function(R0, K, N0, v, years) {
+  N <- numeric(years)
+  N[1] <- N0
+  
+  for (t in 2:years) {
+    env <- rlnorm(1, meanlog = 0, sdlog = v)
+    N[t] <- N[t - 1] * exp(R0 * (1-N[t - 1] / K)) * env
+    if (N[t] < 0) N[t] <- 0
+  }
+  
+  return(N)
+}
+
+R0 <- 0.2
+K <- 100
+N0 <- 100
+v <- 0.15
+years <- 1000
+
+pop <- LogisticModel(R0, K, N0, v, years)
+
+plot(1:years, pop, type = "l", col = "lightblue", 
+     xlab = "Year", ylab = "Population Size",
+     main = "Logistic Growth with Environmental Variability")
+
+hist(pop, breaks = 20, col = "lightblue", border = "black",
+     xlab = "Population Size (N)", main = "Frequency Distribution of Population Sizes")
+```
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+b) Interpret the shape of the frequency distribution of population sizes (N), and compare it with the histogram of R deviations from your text. How is the distribution of N values different? Why do you think these differences might be? [2]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+The histogram of population sizes is roughly bell-shaped, with moderate population sizes around the equilibrium occurring most frequently, and very small or very large sizes occurring less often. This shows that while environmental variability causes fluctuations, the population tends to stabilize around the carrying capacity. In contrast, Figure A5.4-3 in the text shows a histogram of R deviations that is relatively flat because it was drawn from a uniform distribution; each possible environmental condition is equally likely. Population size does not jump around as randomly as the environment because logistic growth naturally pushes it back toward equilibrium.</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+2.	a) Use calculus to show that the function G(N) is maximized when N=K/2.[2]
+</p>
+
+```{r, echo=TRUE, out.width="70%"}
+knitr::include_graphics("~/Desktop/SC1109_Giblin_Keala/SC1109_Assignments/IMG_8896.jpeg")
+``` 
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+b) Find maximum sustainable yield (MSY; the value of G(N) at its maximum) as a function of R0 and K. Show your workings below. [2]
+</p>
+
+```{r, echo=TRUE, out.width="70%"}
+knitr::include_graphics("~/Desktop/SC1109_Giblin_Keala/SC1109_Assignments/IMG_9005.jpeg")
+``` 
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+3.	Modify your simulation from (1) to incorporate harvesting at MSY, set the initial population size (N0) to be equal to the population size that produces MSY, and reduce the length of the simulation to 100 years. Leave the other variables unchanged. Run this simulation 4 times, and create a graph of population size over time for each simulation. How are your graphs similar? How are they different? [2]
+</p>
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+LogisticHarvest <- function(R0, K, N0, v, years, h) {
+  N <- numeric(years)
+  N[1] <- N0
+  
+  for (t in 2:years) {
+    env <- rlnorm(1, meanlog = 0, sdlog = v)
+    N[t] <- N[t-1] * exp(R0 * (1 - N[t-1] / K)) * env - h
+    if (N[t] < 0) N[t] <- 0
+  }
+  return(N)
+}
+
+R0 <- 0.2
+K <- 100
+v <- 0.15
+years <- 100
+N0 <- K/2
+h <- (R0 * K) / 4
+
+set.seed(123)
+par(mfrow = c(2,2))
+for (i in 1:4) {
+  pop <- LogisticHarvest(R0, K, N0, v, years, h)
+  plot(1:years, pop, type = "l", col = "steelblue", 
+       xlab = "Year", ylab = "Population Size",
+       main = paste("Simulation", i))
+}
+par(mfrow = c(1,1))
+```
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+Some simulations remain relatively stable around K/2, while others collapse to zero after several years. This variation is because harvesting at MSY leaves no safety margin for consecutive bad environmental years. Negative environmental deviations combined with the harvest can drive the population to extinction, highlighting that MSY is risky under variable conditions.</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+4.	a) Run the simulation you designed in (3) for a total of 20 times, using the same parameter values and starting conditions as you did in step (3). Plot all 20 trajectories on a graph, and determine how many of these 20 populations went extinct in the 100 year period that you simulated. Show the plot and comment on the output. [2]
+</p>
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+set.seed(123)
+n_sims <- 20
+years <- 100
+N0 <- K / 2
+extinct <- numeric(n_sims)
+
+plot(1:years, type = "n", ylim = c(0, K), xlab = "Year", ylab = "Population Size",
+     main = "20 Simulations of Harvest at MSY")
+
+for (i in 1:n_sims) {
+  pop <- LogisticHarvest(R0, K, N0, v, years, h)
+  lines(1:years, pop, col = rgb(0, 0, 1, 0.3))
+  extinct[i] <- as.numeric(pop[years] <= 0)
+}
+
+extinction_rate <- mean(extinct)
+extinction_rate
+```
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+This plot shows that of the 20 trajectories 11 populations went extinct within 90 years.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+b) Based on the proportion of these simulations that went extinct, what would be your estimate of the probability that a population with these parameter values, harvested at MSY, would be extinct within 100 years?[2]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+I would estimet a 55% probability that a poultion with these parameter values, harvested at MSY, would be extinct within 100 years.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+Next, let’s explore what happens when we try to reduce the harvest, and manage the population at the stable and unstable equilibria, respectively.
+</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+5.	Let’s try managing the population to the right of the peak in the production function, at  N=3/4 K. Set this as the initial population size, N0. Then set the harvest, h, at what it would need to be, in order to keep this population at equilibrium, if there were no randomness in the population dynamics. Leave R0=0.2, K=100, and v=0.15. Run another 20 simulations, plot them on a graph, and estimate the probability of extinction for this hypothetical population managed with this harvesting strategy. [2]
+</p>
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+N0 <- 0.75 * K
+h <- 0.1875 * R0 * K
+
+set.seed(123)
+n_sims <- 20
+extinct <- numeric(n_sims)
+
+plot(1:years, type = "n", ylim = c(0, K), xlab = "Year", ylab = "Population Size",
+     main = "20 Simulations: Managed at ¾K")
+
+for (i in 1:n_sims) {
+  pop <- LogisticHarvest(R0, K, N0, v, years, h)
+  lines(1:years, pop, col = rgb(0, 0.5, 0, 0.3))
+  extinct[i] <- as.numeric(pop[years] <= 0)
+}
+
+extinction_rate_75 <- mean(extinct)
+extinction_rate_75
+```
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+Only 1 population went extinct out of 20 simulations (5%), showing that managing on the stable side of the production curve greatly reduces extinction risk.</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+6.	See what happens when we instead try to manage the population to the left of the production function, at N=1/4 K. Set this as the initial population size, N0. Then set the harvest, h, at what it would need to be, in order to keep this population at equilibrium, if there were no randomness in the population dynamics. How does it compare with the harvest level in (5)? Again, leave R0=0.2, K=100, and v=0.15, run 20 simulations, plot them on a graph, and estimate the probability of extinction for this hypothetical population managed with this harvesting strategy. [2]
+</p>
+
+```{r, echo=TRUE, fig.width=6, fig.height=5}
+N0 <- 0.25 * K
+h <- 0.1875 * R0 * K
+
+set.seed(123)
+extinct <- numeric(n_sims)
+
+plot(1:years, type = "n", ylim = c(0, K), xlab = "Year", ylab = "Population Size",
+     main = "20 Simulations: Managed at ¼K")
+
+for (i in 1:n_sims) {
+  pop <- LogisticHarvest(R0, K, N0, v, years, h)
+  lines(1:years, pop, col = rgb(1, 0, 0, 0.3))
+  extinct[i] <- as.numeric(pop[years] <= 0)
+}
+
+extinction_rate_25 <- mean(extinct)
+extinction_rate_25
+```
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+Twelve populations went extinct (60%), demonstrating that managing on the unstable side of the production curve greatly increases extinction risk, even though the harvest is the same as in the stable scenario.</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+7.	Increase the magnitude of random variation in R to 0.25 (i.e., v=0.25), and repeat steps (5) and (6). [2]
+</p>
+
+```{r, echo=TRUE, fig.width=12, fig.height=5}
+LogisticHarvest <- function(R0, K, N0, v, years, h) {
+  N <- numeric(years)
+  N[1] <- N0
+  
+  for (t in 2:years) {
+    env <- rlnorm(1, meanlog = 0, sdlog = v)
+    N[t] <- N[t - 1] * exp(R0 * (1 - N[t - 1] / K)) * env - h
+    if (N[t] < 0) N[t] <- 0
+  }
+  
+  return(N)
+}
+
+R0 <- 0.2
+K <- 100
+v <- 0.25
+years <- 100
+h <- R0 * (K/4) * (1 - 0.25) 
+
+N0_stable <- 0.75 * K 
+N0_unstable <- 0.25 * K  
+
+sims <- 20
+
+set.seed(123)
+stable_runs <- replicate(sims, LogisticHarvest(R0, K, N0_stable, v, years, h))
+unstable_runs <- replicate(sims, LogisticHarvest(R0, K, N0_unstable, v, years, h))
+
+par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+
+# Stable (3/4 K)
+matplot(stable_runs, type = "l", lty = 1, col = rgb(0, 0, 1, 0.3),
+        xlab = "Year", ylab = "Population size (N)",
+        main = "Stable equilibrium (N₀ = ¾K, v = 0.25)")
+abline(h = N0_stable, col = "darkblue", lwd = 2)
+
+# Unstable (1/4 K)
+matplot(unstable_runs, type = "l", lty = 1, col = rgb(1, 0, 0, 0.3),
+        xlab = "Year", ylab = "Population size (N)",
+        main = "Unstable equilibrium (N₀ = ¼K, v = 0.25)")
+abline(h = N0_unstable, col = "darkred", lwd = 2)
+
+stable_extinct <- sum(stable_runs[years, ] == 0)
+unstable_extinct <- sum(unstable_runs[years, ] == 0)
+
+cat("Stable equilibrium: ", stable_extinct, " of 20 went extinct\n")
+cat("Unstable equilibrium: ", unstable_extinct, " of 20 went extinct\n")
+
+```
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+Increasing environmental variability to v = 0.25 increases extinction risk in both scenarios. For the stable equilibrium (N0 = 3/4K), 7 of 20 populations went extinct, while for the unstable equilibrium (N0 = 1/4K), 14 of 20 populations went extinct. This shows that populations near the unstable equilibrium remain highly vulnerable, and variability magnifies the difference in persistence between stable and unstable management strategies.</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+8.	Figure out what your target stock size would need to be (to within ±5), in order to reduce the probability of extinction for a population with this level of variation to <15%. When you test this out, set your initial population size, N0, to be equal to the target population size that you’re trying. Try increasing your number of simulations to 100, to get a better estimate. Explain how you made your determination of the necessary target stock size. What is the harvest associated with this target stock size? [2]
+</p>
+
+```{r, echo=TRUE, fig.width=7, fig.height=5}
+R0 <- 0.2
+K  <- 100
+v  <- 0.25          
+years <- 100
+n_sims <- 100        
+set.seed(2025)       
+
+
+candidates <- seq(30, 95, by = 5)  
+
+results <- data.frame(TargetN = candidates,
+                      Harvest = NA,
+                      Extinct = NA,
+                      ExtProb = NA,
+                      Lower95 = NA,
+                      Upper95 = NA,
+                      stringsAsFactors = FALSE)
+
+for (i in seq_along(candidates)) {
+  N0 <- candidates[i]
+  h  <- R0 * N0 * (1 - N0 / K)     
+  extincts <- replicate(n_sims, {
+    pop <- LogisticHarvest(R0, K, N0, v, years, h)
+    as.integer(any(pop <= 0))      
+  })
+  x <- sum(extincts)
+  bt <- binom.test(x, n_sims)
+  
+  results$Harvest[i]   <- h
+  results$Extinct[i]   <- x
+  results$ExtProb[i]   <- x / n_sims
+  results$Lower95[i]   <- bt$conf.int[1]
+  results$Upper95[i]   <- bt$conf.int[2]
+  
+  cat("Target", N0, ": extinct", x, "/", n_sims, 
+      " -> p =", round(x/n_sims,3), "\n")
+}
+
+print(results)
+
+ok_idx <- which(results$ExtProb < 0.15)
+if (length(ok_idx) == 0) {
+  message("No candidate in coarse grid achieved ExtProb < 0.15; consider trying larger targets.")
+} else {
+  best_coarse <- results$TargetN[min(ok_idx)]
+  cat("Coarse best target:", best_coarse, "\n")
+  
+  refine_range <- seq(max(5, best_coarse-10), min(K, best_coarse+10), by = 1)
+  refine_res <- data.frame(TargetN = refine_range, Extinct = NA, ExtProb = NA,
+                           Lower95 = NA, Upper95 = NA, Harvest = NA)
+  for (j in seq_along(refine_range)) {
+    N0 <- refine_range[j]
+    h  <- R0 * N0 * (1 - N0 / K)
+    extincts <- replicate(n_sims, {
+      pop <- LogisticHarvest(R0, K, N0, v, years, h)
+      as.integer(any(pop <= 0))
+    })
+    x <- sum(extincts)
+    bt <- binom.test(x, n_sims)
+    refine_res$Harvest[j]  <- h
+    refine_res$Extinct[j]  <- x
+    refine_res$ExtProb[j]  <- x / n_sims
+    refine_res$Lower95[j]  <- bt$conf.int[1]
+    refine_res$Upper95[j]  <- bt$conf.int[2]
+  }
+  print(refine_res)
+  
+  ok_ref <- refine_res[refine_res$ExtProb < 0.15, ]
+  if (nrow(ok_ref) == 0) {
+    message("No refined target reached extinction prob < 0.15. Consider increasing target range.")
+  } else {
+    best_target <- ok_ref$TargetN[1]
+    cat("Refined best target (smallest achieving <0.15):", best_target, "\n")
+    cat("Associated harvest h =", round(ok_ref$Harvest[1],3), 
+        "Estimated ext prob =", ok_ref$ExtProb[1], 
+        "95% CI = (", round(ok_ref$Lower95[1],3), ",", round(ok_ref$Upper95[1],3), ")\n")
+  }
+}
+
+results <- data.frame(
+  TargetN = c(30,35,40,45,50,55,60,65,70,75,80,85,90,95),
+  ExtProb = c(0.79,0.83,0.94,0.91,0.92,0.85,0.85,0.84,0.70,0.54,0.35,0.18,0.02,0.00)
+)
+
+plot(results$TargetN, results$ExtProb, type = "b", pch = 19, col = "darkblue",
+     xlab = "Target Population Size (N₀)",
+     ylab = "Extinction Probability (100 simulations)",
+     main = "Effect of Target Stock Size on Extinction Probability")
+abline(h = 0.15, col = "steelblue", lwd = 2, lty = 2)
+abline(v = 87, col = "lightblue", lwd = 2, lty = 3)
+
+text(87, 0.2, "Target ≈ 87 (5%)", pos = 4, col = "lightblue", cex = 0.9)
+text(50, 0.16, "15% threshold", pos = 4, col = "steelblue", cex = 0.9)
+
+
+```
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+To determine the necessary target stock size under high variability (v = 0.25), I ran 100 stochastic simulations for candidate targets ranging from 30 to 95 individuals. For each target, the harvest was calculated as h = R0 * N * (1 - N/K), and I recorded the proportion of populations going extinct within 100 years. The smallest target achieving an extinction probability below 15% was N ≈ 87, with an associated harvest of h ≈ 2.26. At this target, only 5% of populations went extinct, showing that under higher environmental variability, maintaining a larger population than MSY is necessary to buffer against bad years.</p>
+
+<p style="font-weight:bold; font-family:Georgia; font-size:14px; color:black;">
+9.	(Short essay). In 200-350 words, assess the robustness of our “rules of thumb” for sustainable harvesting from lecture. Do your results in (1)-(8) suggest that this needs to be modified? If so, how? [2]
+</p>
+
+<p style="font-family:Georgia; font-size:14px; color:darkblue;">
+The simulations conducted in this assignment highlight both the usefulness and the limitations of simple “rules of thumb” for sustainable harvesting. Traditional rules, such as setting harvests at the maximum sustainable yield (MSY) corresponding to the peak of the production function (N = K/2), provide a first approximation for sustainable management. However, the results demonstrate that environmental variability and population stability significantly affect the outcomes. When populations were harvested at MSY, 55% of simulations went extinct within 100 years, indicating that MSY does not provide a sufficient buffer against stochastic fluctuations. Management on the stable side of the production curve (N = 3/4 K) produced very low extinction probabilities (5%), while populations managed on the unstable side (N = 1/4 K) collapsed frequently (60% extinction), despite identical equilibrium harvest levels. Increasing environmental variability (v = 0.25) exacerbated these effects: extinction risk increased for all strategies, but populations near the unstable equilibrium remained highly vulnerable. This clearly demonstrates that stability around the equilibrium is as important as the nominal harvest rate in determining population persistence. Finally, the simulations exploring target stock sizes under high variability showed that a population larger than MSY is necessary to maintain extinction risk below 15%. Specifically, a target of N ≈ 87 (with harvest h ≈ 2.26) achieved this goal. This illustrates that classical MSY rules can be misleading under stochastic conditions, and precautionary adjustments to target stock size are essential. Overall, the results suggest that sustainable harvesting strategies must account for both the stability of the population equilibrium and environmental stochasticity. While rules of thumb like MSY provide a useful starting point, they are insufficient to guarantee persistence in fluctuating environments. Managers should adopt conservative targets, favoring larger population sizes than MSY, and consider variability explicitly in decision-making to ensure long-term sustainability.
+</p>

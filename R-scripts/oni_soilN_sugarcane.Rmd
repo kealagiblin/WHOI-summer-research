@@ -1,0 +1,259 @@
+---
+title: "Giblin.Kealalani.AdvAssignment3"
+author: "Kealalani Giblin"
+date: "2025-11-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#oni set up
+```{r, echo=TRUE}
+oni <- read.csv("~/Desktop/SC1109_Giblin_Keala/SC1109_Assignments/ENSO3_4.csv", header = FALSE, skip = 2, stringsAsFactors = FALSE)
+
+colnames(oni) <- c("year", "DJF", "JFM", "FMA", "MAM", "AMJ", "MJJ",
+                   "JJA", "JAS", "ASO", "SON", "OND", "NDJ")
+
+oni$year <- as.integer(oni$year)
+
+oni[, 2:ncol(oni)] <- lapply(oni[, 2:ncol(oni)], function(x) as.numeric(as.character(x)))
+
+classify <- function(x) {
+  ifelse(x >= 0.5, "El Niño",
+         ifelse(x <= -0.5, "La Niña",
+                "Neutral"))
+}
+
+oni_cat <- as.data.frame(apply(as.data.frame(oni[, 2:ncol(oni)]), 2, classify),
+                         stringsAsFactors = FALSE)
+
+oni_cat$year <- oni$year
+oni_cat <- oni_cat[, c(ncol(oni_cat), 1:(ncol(oni_cat)-1))]
+
+```
+
+
+#nsim set up
+```{r, echo=TRUE}
+nsim <- read.csv("~/Desktop/SC1109_Giblin_Keala/SC1109_Assignments/Nitrogen_Simulation.csv")
+
+coom <- nsim[nsim$soilCode == "coomR" & nsim$residueCode == "Mr" & nsim$metCode == "STCent", ]
+
+liver <- nsim[nsim$soilCode == "liveR" & nsim$residueCode == "Mr" & nsim$metCode == "STCent", ]
+
+coom <- coom[order(coom$Season), ]
+liver <- liver[order(liver$Season), ]
+
+coom_full <- merge(coom, oni_cat[, c("year", "JFM")],
+                   by.x = "Season", by.y = "year")
+liver_full <- merge(liver, oni_cat[, c("year", "JFM")],
+                    by.x = "Season", by.y = "year")
+
+summary(coom$Nopt_fertN_kg_ha)
+summary(liver$Nopt_fertN_kg_ha)
+```
+
+<!-- <b style="font-family:Georgia; font-size:14px"> -->
+Q1: Compare the Nopt distributions for the Coom and Liverpool soils. Produce a plot of some type. Discuss key features of the plot you generated. [2]
+</b> 
+
+```{r, echo=TRUE, fig.width=10, fig.height=10}
+library(ggplot2)
+
+coom_full$Soil <- "Coom"
+liver_full$Soil <- "Liverpool"
+
+df <- rbind(
+  coom_full[, c("Nopt_fertN_kg_ha", "Soil")],
+  liver_full[, c("Nopt_fertN_kg_ha", "Soil")]
+)
+
+colnames(df)[1] <- "Nopt"
+
+ggplot(df, aes(x = Nopt, color = Soil, fill = Soil)) +
+  geom_density(alpha = 0.3) +
+  xlim(0, 260) +
+  labs(title = "Density Plot of Nopt for Coom vs Liverpool",
+       x = "Nopt (kg/ha)",
+       y = "Density") +
+  theme_minimal()
+```
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+There is a significant difference in the Nopt distributions between the Coom and Liverpool soils. The Liverpool soil has a much haigher Nopt requirement and a larger range of values, with a right-hand tail extending to ~250 kg/ha. This indicates higher overall nitrogen demand and a greater variability. Comparatively, the Coom soil values are more tightly clustered together between ~70-90 kg/ha, and a much lower maximum of ~125 kg/ha. This indicates that Coom soil has lower nitrogen demand and less variability, which aligns with the values previously calculated. 
+</p>
+
+<b style="font-family:Georgia; font-size:14px">
+Q2a: Recall that Nopt values run from 1950 to 2014. Describe the relationship between the JFM ONI phase in the year of harvest with Nopt for the Coom and Liverpool soils. [2]
+</b> 
+
+```{r, echo=TRUE}
+oni_cat$year  ==  nsim$Season
+
+coom_full <- merge(coom, oni_cat[, c("year", "JFM")],
+                   by.x = "Season", by.y = "year")
+liver_full <- merge(liver, oni_cat[, c("year", "JFM")],
+                    by.x = "Season", by.y = "year")
+
+aggregate(Nopt_fertN_kg_ha ~ JFM, data = coom_full, mean)
+aggregate(Nopt_fertN_kg_ha ~ JFM, data = liver_full, mean)
+```
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+The relationship between JFM ENSO phase and Nopt differs between the two soils. For the Coom soil, Nopt was lowest during La Niña years and higher during Neutral and El Niño years, indicating reduced fertilizer requirements under wetter la Niña condtions. In contrast, the Liverpool soil showed the opposite pattern, with the highest Nopt during La Niña and the lowest during El Niño, suggesting greater nitrogen demand or loss under La Niña conditions for this soil type.
+</p>
+
+<b style="font-family:Georgia; font-size:14px">
+Q2b: Compute the median Nopt value for each JFM ONI phase for the Coom and Liverpool
+soils. [2]
+</b> 
+
+```{r, echo=TRUE}
+cat("Median Nopt by JFM phase — Coom Soil\n")
+aggregate(Nopt_fertN_kg_ha ~ JFM, data = coom_full, median)
+
+cat("\nMedian Nopt by JFM phase — Liverpool Soil\n")
+aggregate(Nopt_fertN_kg_ha ~ JFM, data = liver_full, median)
+```
+
+<b style="font-family:Georgia; font-size:14px">
+Q3: Compute a 95% bootstrapped interval estimate for the median for each JFM ONI phase for the Coom and Liverpool soils. [2]
+</b> 
+
+```{r, echo=TRUE, fig.width=10, fig.height=10}
+set.seed(777)
+Nboot <- 1000
+
+bootstrap_median_CI <- function(x, Nboot = 1000){
+  medians <- numeric(Nboot)
+  for(i in 1:Nboot){
+    boot_sample <- sample(x, replace = TRUE)
+    medians[i] <- median(boot_sample)
+  }
+  quantile(medians, c(0.025, 0.975))
+}
+
+coom_phases <- unique(coom_full$JFM)
+coom_CI <- data.frame(Phase = coom_phases, Lower = NA, Upper = NA)
+
+for(p in coom_phases){
+  values <- coom_full$Nopt_fertN_kg_ha[coom_full$JFM == p]
+  coom_CI[coom_CI$Phase == p, 2:3] <- bootstrap_median_CI(values, Nboot)
+}
+
+liver_phases <- unique(liver_full$JFM)
+liver_CI <- data.frame(Phase = liver_phases, Lower = NA, Upper = NA)
+
+for(p in liver_phases){
+  values <- liver_full$Nopt_fertN_kg_ha[liver_full$JFM == p]
+  liver_CI[liver_CI$Phase == p, 2:3] <- bootstrap_median_CI(values, Nboot)
+}
+
+cat("95% Bootstrap CI — Coom Soil\n")
+print(coom_CI)
+
+cat("\n95% Bootstrap CI — Liverpool Soil\n")
+print(liver_CI)
+```
+
+<b style="font-family:Georgia; font-size:14px">
+Q4a: What percentage of models (both statistical and dynamical) favour a La Niña developing for this coming JFM? [1]
+</b> 
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+~35% of models favor La Niña conditions for this coming JFM.
+</p>
+
+<b style="font-family:Georgia; font-size:14px">
+Q4b: What percentage of models (both statistical and dynamical) favour Neutral conditions developing for JFM? [1]
+</b>
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+~62% of models favor Neutral conditions for this coming JFM.
+</p>
+
+<b style="font-family:Georgia; font-size:14px">
+Q4c: What percentage of models (both statistical and dynamical) favour an El Niño developing for JFM? [1]
+</b> 
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+~2% of models favor El Niño conditions for this coming JFM. 
+</p>
+
+<b style="font-family:Georgia; font-size:14px">
+Q5a: Instead of producing bootstrapped samples, separately for each ENSO phase, compute one 95% bootstrapped interval estimate for the median for a Coom soil in the southern sugarcane growing region from the ensemble. [2]
+</b> 
+
+```{r, echo=TRUE, fig.width=10, fig.height=10}
+set.seed(777)
+Nboot <- 1000
+
+ensemble_bootstrap_median <- function(soil_data, Nboot=1000){
+  
+  p_la <- 0.35
+  p_neutral <- 0.62
+  p_el <- 0.02
+  
+  n_total <- nrow(soil_data)  # 65 years
+  n_la <- round(p_la * n_total)
+  n_neutral <- round(p_neutral * n_total)
+  n_el <- round(p_el * n_total)
+  
+  medians <- numeric(Nboot)
+  
+  for(i in 1:Nboot){
+    sample_la <- sample(soil_data$Nopt_fertN_kg_ha[soil_data$JFM == "La Niña"], 
+                        n_la, replace=TRUE)
+    sample_neutral <- sample(soil_data$Nopt_fertN_kg_ha[soil_data$JFM == "Neutral"], 
+                             n_neutral, replace=TRUE)
+    sample_el <- sample(soil_data$Nopt_fertN_kg_ha[soil_data$JFM == "El Niño"], 
+                        n_el, replace=TRUE)
+    
+    ensemble_sample <- c(sample_la, sample_neutral, sample_el)
+    
+    medians[i] <- median(ensemble_sample)
+  }
+  
+  quantile(medians, c(0.025, 0.975))
+}
+
+ci_coom_ensemble <- ensemble_bootstrap_median(coom_full, Nboot)
+ci_coom_ensemble
+```
+
+<b style="font-family:Georgia; font-size:14px">
+Q5b: Repeat 5a but for the liverpool soil
+</b>
+
+```{r, echo=TRUE}
+ci_liver_ensemble <- ensemble_bootstrap_median(liver_full, Nboot)
+ci_liver_ensemble
+```
+
+<b style="font-family:Georgia; font-size:14px">
+Q5c: Compare your results from a) and b). [2]
+</b>
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+The 95% bootstrapped confidence interval for the Coom soil was 75–86 kg/ha, while for the Liverpool soil it was 107–120.5 kg/ha. This indicates that Liverpool soil requires substantially more nitrogen than Coom, even at the lower bound of the interval. The narrower interval for Coom suggests that its fertiliser requirement is relatively stable and less sensitive to ENSO uncertainty. In contrast, Liverpool exhibits greater variability, meaning its recommended N application is more dependent on the predicted ENSO phase. Overall, farmers can confidently apply 75–86 kg/ha to Coom soil, while Liverpool soil requires a higher and more flexible rate of 107–120.5 kg/ha to account for potential ENSO-driven variation.
+</p>
+
+<b style="font-family:Georgia; font-size:14px">
+Q6: Write a short (e.g. 200-400 words) recommendation to policy makers and farmers about how much nitrogen should be applied this year to crops grown on a Coom and Liverpool soil on southern farming land. Be sure to discuss how you reached your conclusions and any limitations in your recommendations. [2]
+</b> 
+
+<p style="font-family:Georgia; font-size:14px; color:red">
+  Based on historical crop simulations from 1950 to 2014 and the predicted ENSO conditions for this year, we looked at how much nitrogen (N) should be applied to Coom and Liverpool soils in southern sugarcane-growing areas. The analysis shows that Coom soil generally needs less nitrogen than Liverpool soil. Coom’s Nopt values are usually between 70–90 kg/ha and are fairly consistent, while Liverpool soil needs more nitrogen, around 100–125 kg/ha, and the values vary more.
+  We also looked at how the JFM ENSO phase affects Nopt. For Coom soil, Nopt is lowest in La Niña years and higher in Neutral or El Niño years. For Liverpool soil, the highest Nopt is during La Niña years and the lowest during El Niño. We used bootstrapping to calculate 95% confidence intervals for these medians, which gave us an idea of the uncertainty in the results.
+  To make the recommendation more reliable, we included the probabilities of ENSO phases for this year (35% La Niña, 62% Neutral, 2% El Niño) and calculated ensemble-weighted medians. This gave a 95% confidence interval of 75–86 kg/ha for Coom and 107–120.5 kg/ha for Liverpool.
+  Conclusion: Farmers can use 75–86 kg/ha of nitrogen for Coom soil and 107–120.5 kg/ha for Liverpool soil. Coom is more stable, while Liverpool varies more depending on ENSO conditions. These recommendations are based on simulations and the current ENSO forecast, so real conditions may differ. Farmers should monitor the crop and adjust nitrogen as needed.
+</p>
+
+
+
+
+
+
+
